@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"github.com/segmentio/kafka-go"
 	"log"
 	"net"
 
@@ -17,6 +19,22 @@ func main() {
 	db := repository.NewRepository(cfg)
 	srv := service.NewService(db)
 	grpcSrv := grpc.NewServer()
+
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers: []string{"localhost:9092"},
+		Topic:   "user.create",
+		GroupID: "123",
+	})
+
+	go func() {
+		for {
+			msg, err := reader.ReadMessage(context.Background())
+			if err != nil {
+				log.Fatalf("failed to read message: %v", err)
+			}
+			fmt.Printf("massage: %s", string(msg.Value))
+		}
+	}()
 
 	user.RegisterUserServiceServer(grpcSrv, srv)
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.Service.Port))
